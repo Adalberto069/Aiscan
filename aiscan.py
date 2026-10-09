@@ -4,22 +4,21 @@ import time
 from rich.console import Console
 from rich.table import Table
 from core.scanner import AIParser
+from core.exploits import AIScanExploits
 from core.ai_engine import AISecurityAgent
 
 console = Console()
 
-def exibir_loading_pontos(texto, duracao=3):
-    """Gera uma animação clássica de pontos carregando no terminal"""
+def exibir_loading_pontos(texto, duracao=2):
     sys.stdout.write(texto)
     sys.stdout.flush()
     for _ in range(duracao * 2):
-        time.sleep(0.5)
+        time.sleep(0.4)
         sys.stdout.write(".")
         sys.stdout.flush()
     print("\n")
 
 def exibir_banner_ascii():
-    """Gera a assinatura visual em formato ASCII ao iniciar o framework"""
     banner = """
     [bold green]
      █████╗ ██╗███████╗ ██████╗ █████╗ ███╗   ██╗
@@ -32,20 +31,19 @@ def exibir_banner_ascii():
     [bold white]   =[/bold white] [bold green]AIScan Framework v1.0.0-PRO[/bold green]                 [bold white]=[/bold white]
     [bold white]   =[/bold white] [bold cyan]Focado em Vulnerabilidades de Sites feitos por IA[/bold cyan] [bold white]=[/bold white]
     [bold white]   =[/bold white] [bold yellow]Modos disponíveis: MANUAL | PRO_MAX (AI)[/bold yellow]         [bold white]=[/bold white]
+    [dim font_style="italic"]     [SYS_LOG: ATIVO] // LOC: 0x7FFF // Nível: Elite[/dim]
     """
     console.print(banner)
 
 def iniciar_console_interativo():
-    """Loop principal simulando a experiência do msfconsole"""
     alvo = "Não configurado"
     modo = "MANUAL"
     
-    exibir_loading_pontos("[bold cyan][*] Inicializando módulos do AIScan[/bold cyan]", duracao=2)
+    exibir_loading_pontos("[bold cyan][*] Inicializando módulos do AIScan[/bold cyan]", duracao=1)
     exibir_banner_ascii()
     
     while True:
         try:
-            # Customização do prompt idêntica à do Metasploit
             prompt = f"[bold white]aiscan[/bold white] [bold red]dev(scanner)[/bold red] > "
             comando = console.input(prompt).strip().split()
             
@@ -55,7 +53,7 @@ def iniciar_console_interativo():
             cmd_principal = comando[0].lower()
             
             if cmd_principal in ["exit", "quit"]:
-                console.print("[bold red][*] Desligando AIScan Framework... Volte sempre.[/bold red]")
+                console.print("[bold red][*] Desligando AIScan Framework... [SYS_LOG: CLOSED][/bold red]")
                 break
                 
             elif cmd_principal == "help":
@@ -65,17 +63,13 @@ def iniciar_console_interativo():
                 table.add_row("set target <url>", "Configura o site que será inspecionado")
                 table.add_row("set mode <manual/pro>", "Muda entre varredura clássica ou assistida por IA")
                 table.add_row("show options", "Exibe as configurações atuais do ambiente")
-                table.add_row("run / exploit", "Inicia a varredura contra o alvo configurado")
+                table.add_row("run", "Inicia a varredura contra o alvo configurado")
                 table.add_row("exit", "Fecha o console do AIScan")
                 console.print(table)
                 
-            elif cmd_principal == "set":
-                if len(comando) < 3:
-                    console.print("[bold red][-] Uso incorreto. Exemplo: set target google.com[/bold red]")
-                    continue
+            elif cmd_principal == "set" and len(comando) >= 3:
                 var = comando[1].lower()
                 valor = comando[2]
-                
                 if var == "target":
                     alvo = valor
                     console.print(f"[bold green][+] TARGET => {alvo}[/bold green]")
@@ -102,9 +96,8 @@ def iniciar_console_interativo():
                     continue
                 
                 console.print(f"\n[bold yellow][*] Iniciando ataque contra {alvo} usando modo {modo}...[/bold yellow]")
-                exibir_loading_pontos("[bold sync][*] Capturando e quebrando cabeçalhos HTTP[/bold sync]", duracao=2)
+                exibir_loading_pontos("[bold cyan][*] Capturando e extraindo estruturas de build[/bold cyan]", duracao=2)
                 
-                # Instancia o módulo de reconhecimento criado anteriormente
                 parser = AIParser(alvo)
                 if not parser.capturar_html():
                     console.print("[bold red][-] Erro crítico: Não foi possível conectar ao servidor alvo.[/bold red]\n")
@@ -112,7 +105,6 @@ def iniciar_console_interativo():
                 
                 detecoes = parser.detectar_infraestrutura()
                 
-                # Exibição de resultados formatados com Rich
                 table_res = Table(title=f"Resultado do Reconhecimento: {alvo}")
                 table_res.add_column("Análise", style="bold cyan")
                 table_res.add_column("Status / Detalhes", style="white")
@@ -123,9 +115,13 @@ def iniciar_console_interativo():
                 for alerta in detecoes["alertas"]:
                     console.print(f"[bold red]{alerta}[/bold red]")
                 
-                # Executa o Módulo Pro Max (IA) se o usuário selecionou e configurou a chave
+                console.print("\n[bold yellow][*] Iniciando varredura de exploits locais...[/bold yellow]")
+                exploit_engine = AIScanExploits(alvo)
+                resultado_exploit = exploit_engine.testar_supabase_rest_exposto(parser.html_content)
+                console.print(resultado_exploit)
+                
                 if modo == "PRO":
-                    console.print("\n[bold purple][*] Acionando Módulo Pro Max: Enviando telemetria para Inteligência Artificial...[/bold purple]")
+                    console.print("\n[bold purple][*] Acionando Módulo Pro Max: Solicitando análise do agente autônomo...[/bold purple]")
                     agente = AISecurityAgent()
                     relatorio_ia = agente.analisar_com_ia(parser.html_content, detecoes["techs_detectadas"])
                     console.print("\n[bold magenta]=== RELATÓRIO DO AGENTE DE IA ===[/bold magenta]")

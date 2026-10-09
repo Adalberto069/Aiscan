@@ -7,11 +7,10 @@ class AIParser:
         if not url.startswith(('http://', 'https://')):
             url = 'https://' + url
         self.url = url
-        self.headers = {'User-Agent': 'AIScan-Engine/2.0 (Security Research)'}
+        self.headers = {'User-Agent': 'AIScan-Engine/2.0 (Security Research/Bug Bounty)'}
         self.html_content = ""
 
     def capturar_html(self):
-        """Baixa o conteúdo do site alvo"""
         try:
             response = requests.get(self.url, headers=self.headers, timeout=10)
             if response.status_code == 200:
@@ -22,7 +21,6 @@ class AIParser:
             return False
 
     def detectar_infraestrutura(self):
-        """Busca por assinaturas específicas de criadores de IA em estruturas modernas"""
         resultados = {
             "is_ai_generated": False,
             "techs_detectadas": [],
@@ -32,31 +30,34 @@ class AIParser:
         if not self.html_content:
             return resultados
 
-        soup = BeautifulSoup(self.html_content, 'html.parser')
         html_low = self.html_content.lower()
 
-        # 1. Detecção de Frameworks de Build modernos usados por Lovable/v0/Bolt
-        if "next" in html_low or "__next" in html_low or "next/script" in html_low:
-            resultados["techs_detectadas"].append("Next.js App (Padrão v0/Lovable Premium)")
+        # 1. Busca por assinaturas estruturais de ferramentas No-Code / Build de IA (Lovable e Bolt.new)
+        if "lovable" in html_low or "bolt.new" in html_low:
+            resultados["techs_detectadas"].append("Mecanismo Autônomo de IA (Lovable/Bolt)")
             resultados["is_ai_generated"] = True
-            
-        if "vite" in html_low or "assets/index" in html_low:
+
+        if "src/integrations/supabase" in html_low or 'src="main.tsx"' in html_low or "/assets/index-" in html_low:
             resultados["techs_detectadas"].append("Vite Build Engine (Padrão Bolt.new/Lovable)")
             resultados["is_ai_generated"] = True
 
-        # 2. Detecção profunda de estilos (Busca classes mesmo compiladas)
-        classes_tailwind = len(soup.find_all(class_=re.compile(r'^(tw-|p-|m-|bg-|text-|flex|grid)')))
-        if "tailwindcss" in html_low or classes_tailwind > 5 or "styles" in html_low:
+        # 2. Busca por componentes estruturais de injeção de código do Radix / Shadcn (Assinatura v0.app)
+        if "data-radix-" in html_low or "--radix-popper" in html_low:
+            resultados["techs_detectadas"].append("Shadcn/ui Components (Assinatura v0.app)")
+            resultados["is_ai_generated"] = True
+
+        # 3. Busca refinada de Tailwind para evitar falsos positivos
+        if "tailwindcss" in html_low or "tw-body" in html_low:
             resultados["techs_detectadas"].append("Tailwind CSS Engine")
             resultados["is_ai_generated"] = True
 
-        # 3. Detecção de conexões de Banco de Dados diretas no Front-end (Falha clássica de IA)
-        if "supabase.co" in html_low or "supabase" in html_low:
-            resultados["techs_detectadas"].append("Supabase Backend Extensível")
+        # 4. Detecção de conexões diretas expostas no front-end
+        if "supabase.co" in html_low:
+            resultados["techs_detectadas"].append("Supabase Backend")
             resultados["alertas"].append("[🚨] ALERTA: Conexão direta com banco Supabase identificada!")
             resultados["is_ai_generated"] = True
 
-        if "firebaseio.com" in html_low or "firebase" in html_low:
+        if "firebaseio.com" in html_low:
             resultados["techs_detectadas"].append("Firebase Realtime DB")
             resultados["alertas"].append("[🚨] ALERTA: Endpoints do Firebase vazando no cliente.")
             resultados["is_ai_generated"] = True
