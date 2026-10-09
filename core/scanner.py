@@ -1,3 +1,26 @@
+import requests
+import re
+from bs4 import BeautifulSoup
+
+class AIParser:
+    def __init__(self, url):
+        if not url.startswith(('http://', 'https://')):
+            url = 'https://' + url
+        self.url = url
+        self.headers = {'User-Agent': 'AIScan-Engine/2.0 (Security Research)'}
+        self.html_content = ""
+
+    def capturar_html(self):
+        """Baixa o conteúdo do site alvo"""
+        try:
+            response = requests.get(self.url, headers=self.headers, timeout=10)
+            if response.status_code == 200:
+                self.html_content = response.text
+                return True
+            return False
+        except Exception:
+            return False
+
     def detectar_infraestrutura(self):
         """Busca por assinaturas específicas de criadores de IA em estruturas modernas"""
         resultados = {
