@@ -1,11 +1,13 @@
 import os
 import sys
 import time
+import argparse
 from rich.console import Console
 from rich.table import Table
 from core.scanner import AIParser
 from core.exploits import AIScanExploits
 from core.ai_engine import AISecurityAgent
+from core.lua_engine import LuaEngine
 
 console = Console()
 
@@ -35,105 +37,127 @@ def exibir_banner_ascii():
     """
     console.print(banner)
 
-def iniciar_console_interativo():
-    alvo = "Não configurado"
-    modo = "MANUAL"
-    
-    exibir_loading_pontos("[bold cyan][*] Inicializando módulos do AIScan[/bold cyan]", duracao=1)
-    exibir_banner_ascii()
-    
-    while True:
-        try:
-            prompt = f"[bold white]aiscan[/bold white] [bold red]dev(scanner)[/bold red] > "
-            comando = console.input(prompt).strip().split()
-            
-            if not comando:
-                continue
-                
-            cmd_principal = comando[0].lower()
-            
-            if cmd_principal in ["exit", "quit"]:
-                console.print("[bold red][*] Desligando AIScan Framework... [SYS_LOG: CLOSED][/bold red]")
-                break
-                
-            elif cmd_principal == "help":
-                table = Table(title="Comandos Disponíveis", title_style="bold green")
-                table.add_column("Comando", style="bold cyan")
-                table.add_column("Descrição", style="white")
-                table.add_row("set target <url>", "Configura o site que será inspecionado")
-                table.add_row("set mode <manual/pro>", "Muda entre varredura clássica ou assistida por IA")
-                table.add_row("show options", "Exibe as configurações atuais do ambiente")
-                table.add_row("run", "Inicia a varredura contra o alvo configurado")
-                table.add_row("exit", "Fecha o console do AIScan")
-                console.print(table)
-                
-            elif cmd_principal == "set" and len(comando) >= 3:
-                var = comando[1].lower()
-                valor = comando[2]
-                if var == "target":
-                    alvo = valor
-                    console.print(f"[bold green][+] TARGET => {alvo}[/bold green]")
-                elif var == "mode":
-                    if valor.upper() in ["MANUAL", "PRO"]:
-                        modo = valor.upper()
-                        console.print(f"[bold green][+] MODE => {modo}[/bold green]")
-                    else:
-                        console.print("[bold red][-] Modos aceitos: MANUAL ou PRO[/bold red]")
-                else:
-                    console.print(f"[bold red][-] Variável '{var}' desconhecida.[/bold red]")
-                    
-            elif cmd_principal == "show" and len(comando) > 1 and comando[1].lower() == "options":
-                table = Table(title="Configurações Globais", title_style="bold yellow")
-                table.add_column("Parâmetro", style="bold cyan")
-                table.add_column("Valor Atual", style="white")
-                table.add_row("TARGET", alvo)
-                table.add_row("MODE", modo)
-                console.print(table)
-                
-            elif cmd_principal in ["run", "exploit"]:
-                if alvo == "Não configurado":
-                    console.print("[bold red][-] Erro: Configure um alvo válido antes de rodar (set target <url>).[/bold red]")
-                    continue
-                
-                console.print(f"\n[bold yellow][*] Iniciando ataque contra {alvo} usando modo {modo}...[/bold yellow]")
-                exibir_loading_pontos("[bold cyan][*] Capturando e extraindo estruturas de build[/bold cyan]", duracao=2)
-                
-                parser = AIParser(alvo)
-                if not parser.capturar_html():
-                    console.print("[bold red][-] Erro crítico: Não foi possível conectar ao servidor alvo.[/bold red]\n")
-                    continue
-                
-                detecoes = parser.detectar_infraestrutura()
-                
-                table_res = Table(title=f"Resultado do Reconhecimento: {alvo}")
-                table_res.add_column("Análise", style="bold cyan")
-                table_res.add_column("Status / Detalhes", style="white")
-                table_res.add_row("Gerado por IA?", "SIM" if detecoes["is_ai_generated"] else "NÃO DETECTADO")
-                table_res.add_row("Tecnologias", ", ".join(detecoes["techs_detectadas"]) if detecoes["techs_detectadas"] else "Nenhuma")
-                console.print(table_res)
-                
-                for alerta in detecoes["alertas"]:
-                    console.print(f"[bold red]{alerta}[/bold red]")
-                
-                console.print("\n[bold yellow][*] Iniciando varredura de exploits locais...[/bold yellow]")
-                exploit_engine = AIScanExploits(alvo)
-                resultado_exploit = exploit_engine.testar_supabase_rest_exposto(parser.html_content)
-                console.print(resultado_exploit)
-                
-                if modo == "PRO":
-                    console.print("\n[bold purple][*] Acionando Módulo Pro Max: Solicitando análise do agente autônomo...[/bold purple]")
-                    agente = AISecurityAgent()
-                    relatorio_ia = agente.analisar_com_ia(parser.html_content, detecoes["techs_detectadas"])
-                    console.print("\n[bold magenta]=== RELATÓRIO DO AGENTE DE IA ===[/bold magenta]")
-                    console.print(relatorio_ia)
-                    console.print("[bold magenta]=================================[/bold magenta]\n")
-                    
-            else:
-                console.print("[bold red][-] Comando inválido. Digite 'help' para ver os comandos suportados.[/bold red]")
-                
-        except KeyboardInterrupt:
-            console.print("\n[bold red][*] Use 'exit' para fechar o framework com segurança.[/bold red]")
+def normalizar_url(alvo):
+    """Garante scheme p/ os módulos Lua (requests exige http:// ou https://)."""
+    if alvo.startswith(('http://', 'https://')):
+        return alvo
+    return 'https://' + alvo
 
-# ⚠️ ISSO AQUI LIGA O PROGRAMA: O Python lê essa linha e dispara o console
+def executar_scan(alvo, modo="MANUAL", fases=None, modulo_unico=None, animar=True, show_data=False):
+    """Pipeline único usado pelo console interativo E pelo CLI direto.
+    fases: subset de {'recon','exploit','lua','pro'} — None = tudo (pro só se modo PRO).
+    show_data: opt-in — exibe valores reais (PII) nos módulos de escopo. Padrão: redacted."""
+    if fases is None:
+        fases = {'recon', 'exploit', 'lua', 'pro'}
+    else:
+        fases = set(fases)
+
+    if modulo_unico:
+        parser_tmp = AIParser(alvo)
+        html_tmp, techs_tmp = "", []
+        if parser_tmp.capturar_html():
+            html_tmp = parser_tmp.html_content
+            techs_tmp = parser_tmp.detectar_infraestrutura()["techs_detectadas"]
+        else:
+            console.print("[bold red][-] Não foi possível conectar ao alvo.[/bold red]")
+            return
+        engine = LuaEngine()
+        ctx = {"target": normalizar_url(alvo), "html": html_tmp, "techs": techs_tmp, "show_data": show_data}
+        console.print(f"[bold cyan][*] Executando módulo Lua: {modulo_unico}[/bold cyan]")
+        # markup=False: output Lua usa [TAGS] literais ([redacted] sumia comido pelo Rich)
+        console.print(engine.executar_modulo(modulo_unico, ctx), markup=False)
+        return
+
+    console.print(f"\n[bold yellow][*] Iniciando ataque contra {alvo} usando modo {modo}...[/bold yellow]")
+    if animar:
+        exibir_loading_pontos("[bold cyan][*] Capturando e extraindo estruturas de build[/bold cyan]", duracao=2)
+
+    parser = AIParser(alvo)
+    if not parser.capturar_html():
+        console.print("[bold red][-] Erro crítico: Não foi possível conectar ao servidor alvo.[/bold red]\n")
+        return
+
+    detecoes = parser.detectar_infraestrutura()
+
+    if 'recon' in fases:
+        table_res = Table(title=f"Resultado do Reconhecimento: {alvo}")
+        table_res.add_column("Análise", style="bold cyan")
+        table_res.add_column("Status / Detalhes", style="white")
+        table_res.add_row("Gerado por IA?", "SIM" if detecoes["is_ai_generated"] else "NÃO DETECTADO")
+        table_res.add_row("Tecnologias", ", ".join(detecoes["techs_detectadas"]) if detecoes["techs_detectadas"] else "Nenhuma")
+        console.print(table_res)
+        for alerta in detecoes["alertas"]:
+            console.print(f"[bold red]{alerta}[/bold red]")
+
+    if 'exploit' in fases:
+        console.print("\n[bold yellow][*] Iniciando varredura de exploits locais...[/bold yellow]")
+        exploit_engine = AIScanExploits(alvo)
+        console.print(exploit_engine.testar_supabase_rest_exposto(parser.html_content))
+
+    if 'lua' in fases:
+        console.print("\n[bold yellow][*] Executando módulos Lua (/modules)...[/bold yellow]")
+        try:
+            lua_engine = LuaEngine()
+            ctx = {"target": normalizar_url(alvo), "html": parser.html_content, "techs": detecoes["techs_detectadas"], "show_data": show_data}
+            for mod_nome in lua_engine.listar_modulos():
+                console.print(f"\n[bold cyan]--- {mod_nome} ---[/bold cyan]")
+                console.print(lua_engine.executar_modulo(mod_nome, ctx), markup=False)
+        except Exception as e:
+            console.print(f"[bold red][-] Falha no motor Lua: {e}[/bold red]")
+
+    if modo == "PRO" and 'pro' in fases:
+        console.print("\n[bold purple][*] Acionando Módulo Pro Max: Solicitando análise do agente autônomo...[/bold purple]")
+        console.print("[dim][*] O PRO consulta a IA online — aguarde até ~90s sem apertar Ctrl+C.[/dim]")
+        agente = AISecurityAgent()
+        relatorio_ia = agente.analisar_com_ia(parser.html_content, detecoes["techs_detectadas"])
+        console.print("\n[bold magenta]=== RELATÓRIO DO AGENTE DE IA ===[/bold magenta]")
+        console.print(relatorio_ia)
+        console.print("[bold magenta]=================================[/bold magenta]\n")
+
+def modo_uso_rapido():
+    console.print("[bold yellow]Uso:[/bold yellow] python aiscan.py -u <alvo> [-m pro] [--only recon,lua] [--module x.lua]")
+    console.print("[dim]Ex: python aiscan.py -u hiddenmod.com.br -m pro[/dim]")
+
+
+# Modo wpsscan: só CLI direto, sem console interativo
+def main_cli():
+    # stdout UTF-8: sem isso o banner/tabelas (█ ┏ ━) quebram com cp1252 ao redirecionar
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+    ap = argparse.ArgumentParser(prog="aiscan.py", description="AIScan Framework — scanner de sites vibe-coded (Lovable/Bolt/v0).")
+    ap.add_argument("-u", "-a", "--url", "--alvo", dest="alvo", help="alvo (ex: hiddenmod.com.br)")
+    ap.add_argument("-m", "--mode", dest="modo", default="MANUAL", help="MANUAL ou PRO (padrão: MANUAL)")
+    ap.add_argument("--only", dest="fases", default=None, help="fases separadas por vírgula: recon,exploit,lua,pro (padrão: tudo)")
+    ap.add_argument("--module", dest="modulo", default=None, help="roda um módulo Lua só (ex: headers_audit.lua)")
+    ap.add_argument("--list-modules", dest="listar", action="store_true", help="lista /modules e sai")
+    ap.add_argument("--show-data", dest="show_data", action="store_true",
+                    help="exibe valores reais (PII) nos módulos de escopo — só no teu próprio alvo")
+    args = ap.parse_args()
+
+    if args.listar:
+        for mod_nome in LuaEngine().listar_modulos():
+            print(mod_nome)
+        return
+
+    if not args.alvo:
+        exibir_banner_ascii()
+        modo_uso_rapido()
+        sys.exit(2)
+
+    modo = args.modo.upper()
+    if modo not in ["MANUAL", "PRO"]:
+        console.print("[bold red][-] Modos aceitos: MANUAL ou PRO[/bold red]")
+        sys.exit(2)
+    fases = [f.strip().lower() for f in args.fases.split(",")] if args.fases else None
+    if fases and not set(fases) <= {'recon', 'exploit', 'lua', 'pro'}:
+        console.print("[bold red][-] Fases válidas: recon,exploit,lua,pro[/bold red]")
+        sys.exit(2)
+    exibir_banner_ascii()
+    executar_scan(args.alvo, modo, fases=fases, modulo_unico=args.modulo, animar=False,
+                  show_data=args.show_data)
+
 if __name__ == "__main__":
-    iniciar_console_interativo()
+    main_cli()

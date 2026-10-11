@@ -1,0 +1,114 @@
+AIScan Framework v1.0.0-PRO — NOTAS DA BETA
+============================================
+
+1. A IDEIA
+---------
+Ferramenta focada em falhas de sites gerados por IA (Lovable.dev, v0.dev,
+Bolt.new). A febre desses builders entrega codigo rapido com seguranca zero:
+quem nao programa publica sem RLS, sem headers, com secrets no bundle.
+Bug bounty de IA e first-mover: quem chega primeiro bebe agua limpa.
+
+2. O QUE FOI CRIADO
+-------------------
+aiscan.py ............ console interativo estilo msfconsole
+  comandos: set target | set mode <manual/pro> | show options |
+            show modules | run | run module <nome.lua> | exit
+  run = recon -> exploit Supabase -> todos os modulos Lua -> relatorio IA (PRO)
+  PRO com timeout 90s + retry com backoff + aviso de espera no console
+
+core/scanner.py ...... AIParser: fingerprint de build IA
+  (Lovable/Bolt, Vite main.tsx/bundle hash, Shadcn/Radix, Tailwind,
+   Supabase, Firebase) com calibragem anti-falso-positivo
+
+core/exploits.py ..... testa Supabase REST exposto (/rest/v1/ -> 200 = sem RLS)
+
+core/lua_engine.py ... runtime Lua via lupa p/ modulos da comunidade
+  API exposta: http_get, http_status, http_headers, find_regex (regex Python),
+  lower() Unicode-correto, sanitize anti-quebra UTF-8
+
+core/ai_engine.py .... agente PRO_MAX (Gemini 3.5-flash, fallback p/ flash-latest
+  e 3.8-flash), prompt de auditoria defensiva, retry contra 504
+
+modules/ai_signatures.lua .. fingerprint 9 sinais + veredito ALTA/MEDIA/BAIXA
+modules/supabase_enum.lua .. acha base + testa /rest/v1/ + fuzza 10 tabelas
+modules/headers_audit.lua .. 6 headers que IA nunca configura
+modules/js_secrets.lua .... JWT/anon, sbp_, sk-live, AIza, VITE_*/NEXT_PUBLIC_*
+  no HTML + dentro de ate 3 bundles JS
+
+modules/firebase_open.lua .. Firebase Realtime DB com leitura publica (/.json 200)
+  (gerado com DeepSeek, revisado: preview() seguro + branch de erro de rede)
+RODADA 2 (lista de 26 itens):
+- scanner.py: score ponderado (3/2/1, decide >=3), _carregar_bundles(5),
+  alertas Supabase/Firebase só com score>=2
+- exploits.py: pesca anon key, testa com/sem key (401 gateway vs 401 RLS),
+  42501/permission-denied = protegido, só tabela 200 é achado
+- js_secrets.lua: 14 patterns (sk_live/pk_live/OpenAI/Anthropic/AWS/GH/Slack
+  corrigidos), limite 5 bundles, quentes (supabase/firebase/config/env) 1º
+- headers_audit.lua: CORS wildcard e * + credentials
+- lua_engine.py: http_head (status sem corpo), http_cors (Origin arbitraria),
+  preview() p/ amostra sem partir UTF-8. http_get_bin ignorado (opcional).
+- supabase_enum.lua: base via HEAD barato
+- ai_engine.py: fallback só com vivos verificados (3.5-flash, flash-latest)
+- novos: env_leak, cors_wildcard, sourcemap_exposed, firebase_rules,
+  storage_bucket_public (10 modulos no total)
+RODADA 3 (P0 profiles no hiddenmod):
+- Verificado antes de codar: bundle 3.2MB, URL Supabase + JWT anon nele,
+  GET /rest/v1/profiles com key = 200 com linha real (RLS off). P0 real.
+- lua_engine.py: http_get_full(url, max_bytes) streamado com cap + 
+  decode_jwt_payload(token) -> {ok, role, ref}
+- supabase_enum.lua reescrito: acha JWT (HTML + bundles), filtra anon,
+  testa 12 tabelas via ?apikey=, 200-com-dado = FIRE (401/403/404 = silencio)
+- Campo: config mora no byte ~552k — cap inicial 500KB errava por 52KB,
+  caçada fixada em 2MB. js_secrets herdou o mesmo fix (mesma cegueira).
+- Prova: [FIRE] CRITICO em profiles E scripts no ar.
+RODADA 4 (escopo real):
+- lua_engine.py: openapi_tables, json_keys, rest_count (Prefer count=exact),
+  throttle anti-rate-limit
+- supabase_enum.lua: aceita 206; spec OpenAPI removido (exige service_role,
+  401-by-design p/ anon — verificado)
+- supabase_columns.lua novo: rows + cols, PII [redacted], 404 em silencio,
+  200-sem-cols = [?]. Prova: profiles 4 rows/15 cols, scripts 1 row/37 cols.
+- supabase_policies.lua (escrita): travado — só com tabela dedicada.
+RODADA 5 (bug [redacted]):
+- Causa real: Rich comia [redacted] como markup (provado: print isolado).
+  Diagnóstico alternativo (sanitize/preview/estado global) refutado: sumia
+  nos DOIS modos, e o veredito contava 2 sensíveis.
+- Fix: markup=False nos 2 prints de output Lua em aiscan.py. [FIRE]/[OK]
+  inalterados visualmente. Provado no ar: email[redacted].
+RODADA 6 (--show-data, exploit junto):
+- Flag opt-in: --show-data exibe valores reais (3 linhas por tabela) no
+  supabase_columns; padrão segue redacted. ctx.show_data do CLI ao Lua.
+
+.gitignore ........... protege GEMINI_API_KEY e segredos (fora do git)
+requirements.txt ..... requests, bs4, rich, google-generativeai, lupa
+README.md ............ documentacao beta estilo hacker
+
+3. O QUE FOI FEITO / VALIDADO
+----------------------------
+- PRO_MAX ativado: chave salva como GEMINI_API_KEY (User). Modelos 1.5-flash
+  (404 morto) e flash-latest (504 instavel) apos confronto; 3.5-flash padrao.
+- Smoke test example.com: verdadeiro negativo, 0 falso positivo.
+- Teste real hiddenmod.com.br: AI=True (Lovable x42 + Vite x2).
+- Bugs achados no run real e corrigidos:
+  a) string.lower do Lua corrompia UTF-8 com acentos -> lower() em Python
+  b) modulos sem https:// falhavam mudos -> normalizar_url no console
+  c) PRO congelava sem timeout -> timeout 90s + retry + aviso
+  d) framing ofensivo gerava recusa da IA -> prompt defensivo
+- PoC clickjacking (CWE-1021) confirmado no hiddenmod: carrega em iframe
+  sem restricao (sem CSP, sem X-Frame-Options). Fix: 1 header.
+- Relatorio PRO no hiddenmod: 5 achados (VITE_* no bundle, RLS, R2 com URLs
+  diretas, headers, badge Lovable) com severidade e correcao.
+
+4. ESTADO ATUAL
+--------------
+Beta 100% validada de ponta a ponta (recon + 4 Lua + PRO) no alvo real.
+Falta: commit limpo da beta.
+
+5. PROXIMOS PASSOS
+-----------------
+- Commit + push da beta (portfólio Bug Bounty de IA).
+- Novos modulos: firebase_open.lua, env_leak.lua (/.env, /api/*),
+  cors_wildcard.lua.
+- PoCs pendentes no hiddenmod: grep de secrets no bundle (PoC 2),
+  teste de RLS com anon key (PoC 3), URL direta R2 sem login (PoC 4).
+- Fix no hiddenmod: X-Frame-Options/CSP (10 min), RLS no painel Supabase.

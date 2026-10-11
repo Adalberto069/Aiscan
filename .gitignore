@@ -1,0 +1,20 @@
+# Segredos locais — nunca commitar
+.env
+*.env
+*API_KEY*
+*apikey*
+config_local.py
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+.env/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -15,51 +15,72 @@ class AIParser:
             response = requests.get(self.url, headers=self.headers, timeout=10)
             if response.status_code == 200:
                 self.html_content = response.text
+                self._carregar_bundles()
                 return True
             return False
         except Exception:
             return False
 
+    def _carregar_bundles(self, limite=5):
+        """Baixa bundles /assets/*.js e concatena — HTML casca Lovable não dispara nada sozinho."""
+        try:
+            baixados = 0
+            for src in re.findall(r'src="(/assets/[^"]+\.js[^"]*)"', self.html_content or ""):
+                if baixados >= limite:
+                    break
+                base = self.url.rstrip('/')
+                try:
+                    r = requests.get(base + src.split('"')[0], headers=self.headers, timeout=8)
+                    if r.status_code == 200 and r.text:
+                        self.html_content += "\n<!-- bundle:" + src + " -->\n" + r.text[:30000]
+                        baixados += 1
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+    # Assinatura -> (label, peso). Score >= 3 decide IA.
+    PESOS = [
+        ("lovable", ("Lovable.dev", 3)),
+        ("bolt.new", ("Bolt.new", 3)),
+        ("v0.dev", ("v0.dev", 3)),
+        ("data-radix-", ("Shadcn/Radix (v0.app)", 2)),
+        ("--radix-popper", ("Shadcn/Radix (v0.app)", 2)),
+        ("/assets/index-", ("Vite bundle hash (Bolt/Lovable)", 2)),
+        ('src="main.tsx"', ("Vite main.tsx (Bolt/Lovable)", 2)),
+        ("tailwindcss", ("Tailwind CSS Engine", 1)),
+        ("supabase.co", ("Supabase Backend", 1)),
+        ("firebaseio.com", ("Firebase Realtime DB", 1)),
+        ("_next/static", ("Next.js static export", 1)),
+    ]
+
     def detectar_infraestrutura(self):
         resultados = {
             "is_ai_generated": False,
             "techs_detectadas": [],
-            "alertas": []
+            "alertas": [],
+            "score": 0,
         }
 
         if not self.html_content:
             return resultados
 
         html_low = self.html_content.lower()
+        score, vistas = 0, set()
 
-        # 1. Busca por assinaturas estruturais de ferramentas No-Code / Build de IA (Lovable e Bolt.new)
-        if "lovable" in html_low or "bolt.new" in html_low:
-            resultados["techs_detectadas"].append("Mecanismo Autônomo de IA (Lovable/Bolt)")
-            resultados["is_ai_generated"] = True
+        for sinal, (label, peso) in self.PESOS:
+            if sinal in html_low and label not in vistas:
+                vistas.add(label)
+                score += peso
+                resultados["techs_detectadas"].append(label)
 
-        if "src/integrations/supabase" in html_low or 'src="main.tsx"' in html_low or "/assets/index-" in html_low:
-            resultados["techs_detectadas"].append("Vite Build Engine (Padrão Bolt.new/Lovable)")
-            resultados["is_ai_generated"] = True
+        resultados["score"] = score
+        resultados["is_ai_generated"] = score >= 3
 
-        # 2. Busca por componentes estruturais de injeção de código do Radix / Shadcn (Assinatura v0.app)
-        if "data-radix-" in html_low or "--radix-popper" in html_low:
-            resultados["techs_detectadas"].append("Shadcn/ui Components (Assinatura v0.app)")
-            resultados["is_ai_generated"] = True
-
-        # 3. Busca refinada de Tailwind para evitar falsos positivos
-        if "tailwindcss" in html_low or "tw-body" in html_low:
-            resultados["techs_detectadas"].append("Tailwind CSS Engine")
-            resultados["is_ai_generated"] = True
-
-        # 4. Detecção de conexões diretas expostas no front-end
-        if "supabase.co" in html_low:
-            resultados["techs_detectadas"].append("Supabase Backend")
+        if "supabase.co" in html_low and score >= 2:
             resultados["alertas"].append("[🚨] ALERTA: Conexão direta com banco Supabase identificada!")
-            resultados["is_ai_generated"] = True
 
-        if "firebaseio.com" in html_low:
-            resultados["techs_detectadas"].append("Firebase Realtime DB")
+        if "firebaseio.com" in html_low and score >= 2:
             resultados["alertas"].append("[🚨] ALERTA: Endpoints do Firebase vazando no cliente.")
-            resultados["is_ai_generated"] = True
 
         return resultados
