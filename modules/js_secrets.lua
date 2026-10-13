@@ -29,7 +29,7 @@ function run(ctx)
     local hits = find_regex(html, p[1])
     if #hits > 0 then
       achou = achou + 1
-      table.insert(out, "[FIRE] " .. p[2] .. " x" .. #hits .. " :: " .. preview(tostring(hits[1]), 60))
+      table.insert(out, "[FIRE] " .. p[2] .. " x" .. #hits .. " :: " .. tostring(hits[1]))
     end
   end
 
@@ -73,7 +73,7 @@ function run(ctx)
           local hits = find_regex(body, p[1])
           if #hits > 0 then
             achou = achou + 1
-            table.insert(out, "[FIRE] bundle " .. u .. " :: " .. p[2] .. " x" .. #hits)
+            table.insert(out, "[FIRE] bundle " .. u .. " :: " .. p[2] .. " x" .. #hits .. " :: " .. tostring(hits[1]))
           end
         end
       end

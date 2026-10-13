@@ -18,3 +18,12 @@ venv/
 Thumbs.db
 .vscode/
 .idea/
+
+# Relatórios de scan (podem conter dados do alvo)
+report.json
+report.sarif
+report.html
+*.report.json
+*.report.sarif
+*.report.html
+scan_depois.txt

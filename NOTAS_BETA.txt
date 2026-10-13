@@ -78,6 +78,62 @@ RODADA 5 (bug [redacted]):
 RODADA 6 (--show-data, exploit junto):
 - Flag opt-in: --show-data exibe valores reais (3 linhas por tabela) no
   supabase_columns; padrão segue redacted. ctx.show_data do CLI ao Lua.
+RODADA 7 (push + visibilidade do escopo):
+- Push f59a0c0 no ar (23 arquivos, zero secret; scan_depois.txt vazio fora).
+- supabase_columns formatado: tabela alinhada (rows/cols/sensíveis/ex:id),
+  tally públicas/negadas/inexistentes no veredito.
+RODADA 8 (Authorization Matrix Engine):
+- lab/ mock PostgREST 127.0.0.1 (fixtures A/B/público, chaves sintéticas).
+- core/authz.py: identidades via env, diferencial cross, vereditos
+  OK_ALLOWED/OK_DENIED/OK_PUBLIC/BOLA_CONFIRMED/INCONCLUSIVE/WRITE_*,
+  trava de escopo (interno só com --lab), escrita só --lab+--allow-write.
+- CLI --authz/--policy/--lab/--allow-write; normalizar_url http p/ local.
+- lua_engine: http_post/http_delete p/ paridade futura.
+- tests/test_authz_lab.py: 12/12 verde. Fratura achada: faltava
+  import requests no authz.py.
+RODADA 9 (hardening v1.1.1):
+- core/scope.py: check_url + guarded() central (scheme, userinfo, DNS,
+  IPv4/IPv6/mapped, redirect manual sem vazar auth). authz + Lua + scanner
+  + exploits fiados nele; alvo privado aborta antes do 1º request.
+- Lab: probe com modos fail/slow/badid/nodelete/lingering, /__echo_last,
+  /__state, /__mode (lab quebrado p/ métricas TP/FN).
+- authz: write sem cred = INCONCLUSIVE; POST 5xx/timeout = INCONCLUSIVE;
+  DELETE 2xx exige GET vazio (lingering vira ORPHAN).
+- tests: 18 hardening + 3 métricas (precisão/recall 1.00, FP 0) — 33/33 verde.
+- Fraturas: GET do probe no _mut (morto), echo apagado pelo próprio _key,
+  import requests, cp1252 no print de métrica.
+RODADA 10 (ofensiva total, sem máscara):
+- Padrão inverteu: mostra valores reais; --redact mascara (p/ ticket).
+- user_roles existe mas RLS devolve vazio (200 */0); orders/downloads/
+  transacoes/payments 404. Expostas: profiles (4) + scripts (1).
+RODADA 11 (prova completa, ofensiva por padrão):
+- Amostras sem corte útil: columns prova 1200->10000, enum preview 120->2000,
+  js_secrets bundle com sample 200. Verificado: 6KB de rows cruas no output.
+RODADA 12 (zero corte): JWT/id/enum sem preview — valor integral no log.
+RODADA 13 (legibilidade humana):
+- lua_engine.tabela(): rows em lista vertical chave = valor (tabela Rich
+  horizontal quebrou com 35 colunas — 1 char por célula).
+- enum/columns usam tabela(); --redact mascara via parâmetro.
+- Quadro geral no fim do pipeline (FIRE+FALHA por módulo).
+RODADA 14 (painel compacto): lua_engine.painel() — 1 linha/row só com
+username/email/flags/preço; dump completo segue abaixo. findings.py,
+--json/--sarif/--html, add_finding (2 módulos migrados), 43/43 verde.
+RODADA 14 (findings model + export JSON/SARIF/HTML):
+- core/findings.py: Finding + FindingsStore. Severidade canônica
+  (CRITICA..INFO), dedupe por module+target+category+title, ordenação por
+  severidade, resumo. Serializers to_json/to_sarif(2.1.0)/to_html (autocontido,
+  claro+escuro, evidência escapada). PII não é remascarada — já chega redacted.
+- lua_engine: add_finding(tbl) estruturado p/ os módulos + fallback que
+  parseia linhas [FIRE] dos módulos legados (nada se perde). _current_module.
+- aiscan.py: store único atravessa scan + authz; mapeia alertas recon,
+  exploit Supabase (CWE-284), authz BOLA/WRITE (CWE-639/284). Flags
+  --json/--sarif/--html + resumo por severidade no fim.
+- Migrados p/ estruturado: headers_audit (CWE-1021/693/942),
+  supabase_enum (service_role CWE-200, RLS CWE-284; evidência sempre masked).
+- tests/test_findings.py: 10 testes (serializers, dedupe, add_finding Lua,
+  fallback, prioridade estruturado>fallback). Suite 43/43 verde.
+- E2E no lab (modo open=1): 1 BOLA -> 1 Finding CRITICA; email [redacted]
+  sobreviveu no evidence. headers vs example.com: 6 achados estruturados.
 
 .gitignore ........... protege GEMINI_API_KEY e segredos (fora do git)
 requirements.txt ..... requests, bs4, rich, google-generativeai, lupa

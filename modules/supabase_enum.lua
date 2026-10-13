@@ -5,6 +5,7 @@
 function run(ctx)
   local html = ctx['html'] or ""
   local target = ctx['target'] or ""
+  local mask = ctx['show_data'] ~= true
   local out = {"[*] supabase_enum: cacada RLS com anon key"}
 
   local bases, seen_b = {}, {}
@@ -53,7 +54,12 @@ function run(ctx)
     end
   end
   for _, t in ipairs(svc) do
-    table.insert(out, "[FIRE] P0 service_role exposta no front :: " .. preview(t, 40))
+    table.insert(out, "[FIRE] P0 service_role exposta no front :: " .. t)
+    add_finding({title="Supabase service_role JWT exposta no front-end (P0)",
+                 severity="CRITICA", confidence="ALTA", category="secret-exposure",
+                 cwe="CWE-200", description="Chave service_role (ignora RLS) encontrada no HTML/bundle.",
+                 remediation="Revogar a chave imediatamente e nunca embutir service_role no cliente.",
+                 evidence={role="service_role", token_prefix=string.sub(t, 1, 12) .. "..."}})
   end
   if #anon == 0 then
     table.insert(out, "[-] URL Supabase visível, mas sem anon key no HTML/bundles — não dá pra validar RLS. Cheque o bundle JS.")
@@ -77,7 +83,13 @@ function run(ctx)
           local low = lower(body)
           if #body > 10 and not low:find("42501", 1, true) and not low:find("permission denied", 1, true) then
             table.insert(expostas, t)
-            table.insert(out, "[FIRE] CRITICO tabela legível: " .. t .. " em " .. base .. " :: " .. preview(body, 120))
+            table.insert(out, "[FIRE] CRITICO tabela legível: " .. t .. " em " .. base)
+            table.insert(out, "      " .. tabela(body, 3, mask))
+            add_finding({title="Tabela Supabase legível com anon key (RLS ausente): " .. t,
+                         severity="CRITICA", confidence="ALTA", category="supabase-rls",
+                         cwe="CWE-284", description="GET /rest/v1/" .. t .. " retornou dados com a anon key.",
+                         remediation="Habilitar RLS na tabela " .. t .. " e policies restritas ao dono.",
+                         evidence={tabela=t, base=base, amostra=tabela(body, 1, true)}})
           end
         end
       end

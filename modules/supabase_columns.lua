@@ -64,7 +64,7 @@ function run(ctx)
 
   local queda = {"profiles", "users", "user_roles", "orders", "scripts", "products",
                  "customers", "leads", "messages", "posts", "comments", "downloads"}
-  local fire, n_sens = 0, 0
+  local fire, n_sens, n_ok, n_pulo = 0, 0, 0, 0
   for _, base in ipairs(bases) do
     table.insert(out, "[*] base: " .. base)
     -- OpenAPI spec exige service_role (401-by-design p/ anon) — lista fixa verificada.
@@ -74,6 +74,7 @@ function run(ctx)
       local rc = rest_count(base, key, t)
       local st = (rc ~= nil and rc['status']) or -1
       if st == 401 or st == 403 then
+        n_ok = n_ok + 1
         table.insert(out, "[OK] " .. t .. " — permission denied (" .. tostring(st) .. ")")
       elseif st == 200 or st == 206 then
         local sample = http_get(base .. "/rest/v1/" .. t .. "?select=*&limit=5&apikey=" .. key)
@@ -84,30 +85,46 @@ function run(ctx)
         if #cols == 0 then
           table.insert(out, "[?] " .. t .. " — 200 sem colunas confirmadas")
         else
-          local marcadas = {}
+          local sens = {}
           for _, c in ipairs(cols) do
-            if not show_data and eh_sensivel(c) then table.insert(marcadas, c .. "[redacted]") n_sens = n_sens + 1
-            else
-              if eh_sensivel(c) then n_sens = n_sens + 1 end
-              table.insert(marcadas, c)
-            end
+            if eh_sensivel(c) then table.insert(sens, c) n_sens = n_sens + 1 end
           end
           fire = fire + 1
           local tot = (rc ~= nil and rc['total'] ~= nil and rc['total'] >= 0) and tostring(rc['total']) or "?"
-          table.insert(out, "[FIRE] " .. t .. " — " .. tot .. " rows — cols: " .. table.concat(marcadas, ", "))
+          local linha = "[FIRE] " .. t .. string.rep(" ", math.max(1, 16 - #t))
+                        .. tot .. " rows " .. #cols .. " cols"
+          if #sens > 0 then
+            if show_data then
+              linha = linha .. " | " .. table.concat(sens, ", ")
+            else
+              local m = {}
+              for _, c in ipairs(sens) do table.insert(m, c .. "[redacted]") end
+              linha = linha .. " | sensíveis: " .. table.concat(m, ", ")
+            end
+          end
+          -- ex: primeiro id completo (36 chars, sem vazar linha)
+          local ids = find_regex(sample, "\"id\":\"[^\"]+\"")
+          if #ids > 0 then linha = linha .. " | ex: " .. tostring(ids[1]) end
+          table.insert(out, linha)
+          -- painel: só o relevante (ids, emails, flags, preço) — dump completo segue abaixo
+          table.insert(out, painel(sample, 5))
           if show_data then
             local prova = http_get(base .. "/rest/v1/" .. t .. "?select=*&limit=3&apikey=" .. key)
             if string.sub(prova, 1, 8) ~= "__ERRO__" then
-              table.insert(out, "      prova (3 linhas): " .. preview(prova, 1200))
+              table.insert(out, "      prova: " .. tabela(prova, 3, false))
             end
           end
         end
+      else
+        n_pulo = n_pulo + 1
       end
-      -- 404/outros: tabela não existe. Silêncio.
+      -- 404/outros: tabela não existe. Silêncio + conta.
     end
   end
   if fire > 0 then
-    table.insert(out, "[VEREDITO] CRITICO — " .. fire .. " tabela(s) com leitura pública, " .. n_sens .. " coluna(s) sensível(eis).")
+    table.insert(out, "[VEREDITO] CRITICO — " .. fire .. " com leitura pública / "
+                      .. n_ok .. " negadas / " .. n_pulo .. " inexistentes — "
+                      .. n_sens .. " coluna(s) sensível(eis).")
   else
     table.insert(out, "[VEREDITO] ok — escopo sem leitura pública.")
   end

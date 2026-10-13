@@ -1,25 +1,26 @@
-import requests
 import re
 from bs4 import BeautifulSoup
+from core.scope import guarded
 
 class AIParser:
-    def __init__(self, url):
+    def __init__(self, url, lab_mode=False):
         if not url.startswith(('http://', 'https://')):
             url = 'https://' + url
         self.url = url
+        self.lab_mode = lab_mode
         self.headers = {'User-Agent': 'AIScan-Engine/2.0 (Security Research/Bug Bounty)'}
         self.html_content = ""
 
     def capturar_html(self):
-        try:
-            response = requests.get(self.url, headers=self.headers, timeout=10)
-            if response.status_code == 200:
-                self.html_content = response.text
-                self._carregar_bundles()
-                return True
+        r, info = guarded("GET", self.url, headers=self.headers, timeout=10,
+                          lab_mode=self.lab_mode)
+        if r is None:
             return False
-        except Exception:
-            return False
+        if r.status_code == 200:
+            self.html_content = (r.text or "")
+            self._carregar_bundles()
+            return True
+        return False
 
     def _carregar_bundles(self, limite=5):
         """Baixa bundles /assets/*.js e concatena — HTML casca Lovable não dispara nada sozinho."""
@@ -29,13 +30,11 @@ class AIParser:
                 if baixados >= limite:
                     break
                 base = self.url.rstrip('/')
-                try:
-                    r = requests.get(base + src.split('"')[0], headers=self.headers, timeout=8)
-                    if r.status_code == 200 and r.text:
-                        self.html_content += "\n<!-- bundle:" + src + " -->\n" + r.text[:30000]
-                        baixados += 1
-                except Exception:
-                    continue
+                r, _ = guarded("GET", base + src.split('"')[0], headers=self.headers,
+                               timeout=8, lab_mode=self.lab_mode)
+                if r is not None and r.status_code == 200 and r.text:
+                    self.html_content += "\n<!-- bundle:" + src + " -->\n" + r.text[:30000]
+                    baixados += 1
         except Exception:
             pass
 

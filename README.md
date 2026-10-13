@@ -32,7 +32,32 @@ python aiscan.py -u hiddenmod.com.br --module headers_audit.lua
 python aiscan.py --list-modules
 ```
 `-u/-a` = alvo, `-m` = manual/pro, `--only recon,exploit,lua,pro` = fases,
-`--module` = um Lua só, `--show-data` = valores reais no escopo (só teu alvo).
+`--module` = um Lua só, `--redact` = mascara PII (padrão: mostra valores reais).
+
+### Relatórios (JSON / SARIF / HTML)
+
+```
+python aiscan.py -u alvo.com --json out.json      # achados estruturados
+python aiscan.py -u alvo.com --sarif out.sarif    # SARIF 2.1.0 (GitHub code scanning)
+python aiscan.py -u alvo.com --html report.html   # relatório autocontido
+```
+Cada achado carrega severidade (CRITICA..INFO), confiança, categoria, CWE,
+correção e evidência **já redacted** (o relatório é seguro de compartilhar,
+mesmo sem `--redact`). Os três podem ser combinados num só run; vale também
+com `--authz`. Deduplicação por módulo+alvo+categoria+título.
+
+Matriz de autorização (BOLA/IDOR diferencial, leitura por padrão):
+
+```
+AISCAN_KEY_A=.. AISCAN_KEY_B=.. python aiscan.py -u <api> --authz --policy policy.json
+python aiscan.py -u 127.0.0.1:18080 --authz --lab                      # contra o lab local
+python aiscan.py -u 127.0.0.1:18080 --authz --lab --allow-write probe  # + escrita em tabela dedicada
+```
+Sem as chaves, os casos somem em `INCONCLUSIVE`. Escrita nunca roda sem
+`--lab` + `--allow-write`. Ver `lab/README.md`.
+Escopo: só http/https, sem credencial na URL, sem IP interno (loopback só
+com `--lab`), redirects seguidos com revalidação e sem vazar auth. Alvo
+privado sem `--lab` aborta antes do primeiro request.
 
 ## Módulos Lua (`/modules`)
 
