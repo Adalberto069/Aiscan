@@ -1,3 +1,5 @@
+![AISCAN](docs/assets/banner.svg)
+
 # AIScan
 
 Framework modular de auditoria de segurança para aplicações web e APIs. Desenvolvido em Python, com extensibilidade por módulos Lua e geração de relatórios técnicos.
