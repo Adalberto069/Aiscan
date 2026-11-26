@@ -1,0 +1,85 @@
+{
+  "schema": 1,
+  "components": [
+    {
+      "id": "browser",
+      "kind": "client",
+      "zone": "untrusted",
+      "classification": "public"
+    },
+    {
+      "id": "auth",
+      "kind": "identity",
+      "zone": "application",
+      "classification": "restricted"
+    },
+    {
+      "id": "api",
+      "kind": "api",
+      "zone": "application",
+      "classification": "restricted"
+    },
+    {
+      "id": "catalog",
+      "kind": "database",
+      "zone": "data",
+      "classification": "public"
+    },
+    {
+      "id": "profiles",
+      "kind": "database",
+      "zone": "data",
+      "classification": "private"
+    },
+    {
+      "id": "files",
+      "kind": "storage",
+      "zone": "data",
+      "classification": "restricted"
+    },
+    {
+      "id": "events",
+      "kind": "service",
+      "zone": "external",
+      "classification": "unknown"
+    }
+  ],
+  "relationships": [
+    {
+      "source": "browser",
+      "target": "auth",
+      "relation": "authenticates",
+      "control": "server"
+    },
+    {
+      "source": "browser",
+      "target": "api",
+      "relation": "calls",
+      "control": "server"
+    },
+    {
+      "source": "api",
+      "target": "catalog",
+      "relation": "reads",
+      "control": "none"
+    },
+    {
+      "source": "api",
+      "target": "profiles",
+      "relation": "reads",
+      "control": "server"
+    },
+    {
+      "source": "api",
+      "target": "files",
+      "relation": "reads",
+      "control": "unknown"
+    },
+    {
+      "source": "api",
+      "target": "events",
+      "relation": "stores",
+      "control": "server"
+    }
+  ]
+}
