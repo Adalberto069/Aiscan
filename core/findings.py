@@ -259,6 +259,7 @@ def _render_html(store):
           <span class='chip' style='background:{cor}'>{_html.escape(f.severity)}</span>
           <span class='title'>{_html.escape(f.title)}</span>
           {cwe}
+          <span class="meta">{_html.escape(f.verdict)}</span>
           <span class='meta'>{_html.escape(f.module)} · conf {_html.escape(f.confidence)}</span>
         </summary>
         <div class='body'>
