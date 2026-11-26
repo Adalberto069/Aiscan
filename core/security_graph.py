@@ -128,6 +128,29 @@ class SecurityGraph:
                                 "Review items are not confirmed vulnerabilities."]}
 
 
+def summarize(result):
+    """Human-readable summary; JSON remains the machine-readable contract."""
+    metrics = result["metrics"]
+    lines = ["=== AIScan / Security Graph Engine ===",
+             "Modo: " + result["analysis"]]
+    if result["analysis"] == "offline_source_inventory":
+        lines.append(f"Arquivos: {metrics['files_read']} lidos | {metrics['files_skipped']} ignorados | {metrics['parse_errors']} erros de parse")
+        lines.append(f"Componentes: {len(result['components'])} | Referencias locais: {len(result['source_links'])}")
+        for component in result["components"]:
+            lines.append(f"  {component['name']}  [{component['kind']}]  ({len(component['observations'])} observacoes)")
+        if not result["components"]:
+            lines.append("  Nenhuma tecnologia reconhecida; cobertura limitada aos formatos suportados.")
+        if metrics["limit_reached"]:
+            lines.append("  Limite de leitura atingido; inventario parcial.")
+        lines.append("Referencias de codigo nao comprovam relacoes ou permissoes em execucao.")
+    else:
+        lines.append(f"Componentes: {metrics['components']} | Relacoes: {metrics['relationships']} | Fronteiras: {metrics['trust_boundaries']}")
+        for item in result["review_items"]:
+            lines.append(f"  {item['source']} -> {item['target']}: {item['code']}")
+        lines.append(f"Pontos para revisao: {metrics['review_items']} (nao confirmam vulnerabilidades)")
+    return "\n".join(lines)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="AIScan SGE: offline architecture model")
     inputs = parser.add_mutually_exclusive_group(required=True)

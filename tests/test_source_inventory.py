@@ -66,5 +66,55 @@ class InventoryTests(unittest.TestCase):
         self.assertEqual(json.loads(p.stdout)["components"][0]["id"], "fastapi")
 
 
+    def test_unknown_import_and_declared_package_are_visible(self):
+        self.write("app.py", "import requests\nfrom rich.console import Console\nimport os")
+        self.write("requirements.txt", "requests==2.31.0\nrich==13.7.0\n")
+        result = inventory(self.root)
+        entries = {c["name"]: c for c in result["components"]}
+        self.assertEqual(set(entries), {"requests", "rich"})
+        self.assertEqual(len(entries["requests"]["observations"]), 2)
+        self.assertEqual(entries["rich"]["zone"], "unknown")
+
+    def test_local_imports_are_not_runtime_relationships(self):
+        self.write("core/__init__.py", "")
+        self.write("core/helper.py", "")
+        self.write("app.py", "from core.helper import function")
+        result = inventory(self.root)
+        self.assertEqual(result["components"], [])
+        self.assertEqual(result["relationships"], [])
+        self.assertEqual(result["source_links"],
+                         [{"file": "app.py", "module": "core", "basis": "local_python_import"}])
+
+    def test_pyproject_and_unknown_npm_package(self):
+        self.write("pyproject.toml", '[project]\ndependencies = ["httpx>=0.27"]')
+        self.write("package.json", '{"devDependencies":{"@scope/example":"2.0"}}')
+        result = inventory(self.root)
+        self.assertEqual({x["name"] for x in result["components"]}, {"httpx", "@scope/example"})
+
+    def test_no_versions_or_direct_urls_in_output(self):
+        self.write("requirements.txt", "requests==123.456\nsecret @ https://example.test/PRIVATE_TOKEN\n")
+        self.write("package.json", '{"dependencies":{"react":"PRIVATE_TOKEN"}}')
+        output = json.dumps(inventory(self.root))
+        self.assertNotIn("PRIVATE_TOKEN", output)
+        self.assertNotIn("123.456", output)
+
+    def test_main_cli_local_mode_and_json(self):
+        self.write("app.py", "import requests")
+        root = Path(__file__).resolve().parents[1]
+        output = self.root / "report.json"
+        command = [sys.executable, "aiscan.py", "--source", str(self.root), "--json", str(output)]
+        proc = subprocess.run(command, cwd=root, capture_output=True, text=True, check=True)
+        self.assertIn("requests", proc.stdout)
+        self.assertEqual(json.loads(output.read_text(encoding="utf-8"))["components"][0]["name"], "requests")
+        again = subprocess.run(command, cwd=root, capture_output=True)
+        self.assertNotEqual(again.returncode, 0)
+
+    def test_main_cli_rejects_combined_network_mode(self):
+        root = Path(__file__).resolve().parents[1]
+        p = subprocess.run([sys.executable, "aiscan.py", "--source", str(self.root), "-u", "https://example.test"],
+                           cwd=root, capture_output=True)
+        self.assertEqual(p.returncode, 2)
+
+
 if __name__ == "__main__":
     unittest.main()
