@@ -53,6 +53,14 @@ python aiscan.py -u https://example.com --module headers_audit.lua --redact
 | `--json` | Relatório JSON |
 | `--sarif` | Relatório SARIF |
 
+## Importação de evidência administrativa
+
+```bash
+python aiscan.py --audit-evidence lab/admin_evidence.json --json review.json
+```
+
+O modo local importa um snapshot de metadados e contagens informado pelo proprietário e usa o coletor de achados existente. Não consulta o banco, não verifica a autenticidade do snapshot e não constitui confirmação de acesso indevido. O arquivo de laboratório é sintético. Não inclua dados pessoais, segredos ou conteúdo de arquivos. A varredura pela URL continua inalterada.
+
 ## Testes
 
 ```bash
