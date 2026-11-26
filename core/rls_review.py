@@ -35,6 +35,8 @@ def _statements(sql):
         kind = match.lastgroup
         raw = match.group()
         end = match.end()
+        if kind == "literal" and "\\" in raw:
+            raise ValueError("backslash in SQL literal is outside supported syntax")
         if kind == "block":
             depth = 1
             while depth:
@@ -86,6 +88,7 @@ def review(sql):
             "limitations": [
                 "Static review of one file only; not proof of deployed state or exposure.",
                 "Ignores dynamic SQL, multi-action statements, and transaction outcomes.",
+                "Table spellings are compared lexically; search_path, quoted aliases and renames are not resolved.",
                 "Does not evaluate privileges, policy expressions, or other migrations.",
                 "No findings does not establish that RLS is enabled.",
             ]}
