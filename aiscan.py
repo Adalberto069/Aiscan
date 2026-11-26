@@ -223,6 +223,9 @@ def main_cli():
     ap.add_argument("--only", dest="fases", default=None, help="fases separadas por vírgula: recon,exploit,lua,pro (padrão: tudo)")
     ap.add_argument("--module", dest="modulo", default=None, help="roda um módulo Lua só (ex: headers_audit.lua)")
     ap.add_argument("--list-modules", dest="listar", action="store_true", help="lista /modules e sai")
+    local = ap.add_mutually_exclusive_group()
+    local.add_argument("--source", help="inventario de codigo-fonte local (SGE)")
+    local.add_argument("--graph", help="analisa modelo de arquitetura JSON (SGE)")
     ap.add_argument("--redact", dest="redact", action="store_true",
                     help="mascara PII no escopo (padrão: mostra valores reais)")
     ap.add_argument("--authz", dest="authz", action="store_true",
@@ -240,6 +243,30 @@ def main_cli():
     ap.add_argument("--html", dest="html_out", default=None,
                     help="grava relatório HTML autocontido (ex: report.html)")
     args = ap.parse_args()
+
+    if args.source is not None or args.graph is not None:
+        if (args.alvo or args.listar or args.fases or args.modulo or args.authz
+                or args.policy or args.lab or args.allow_write or args.sarif_out
+                or args.html_out or args.modo.upper() != "MANUAL"):
+            ap.error("--source/--graph sao modos locais; use apenas --json para exportar.")
+        import json
+        from pathlib import Path
+        from core.security_graph import SecurityGraph, summarize
+        from core.source_inventory import inventory
+        try:
+            if args.source is not None:
+                result = inventory(args.source)
+            else:
+                spec = json.loads(Path(args.graph).read_text(encoding="utf-8-sig"))
+                result = SecurityGraph.from_dict(spec).analyze()
+            if args.json_out:
+                with open(args.json_out, "x", encoding="utf-8") as out:
+                    json.dump(result, out, ensure_ascii=True, indent=2)
+                    out.write("\n")
+        except (OSError, ValueError) as exc:
+            ap.error(str(exc))
+        console.print(summarize(result), markup=False)
+        return
 
     if args.listar:
         for mod_nome in LuaEngine().listar_modulos():
