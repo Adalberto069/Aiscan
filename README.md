@@ -33,6 +33,8 @@ python -m pip install -r requirements.txt
 ```bash
 python aiscan.py --help
 python aiscan.py --list-modules
+python aiscan.py --source .
+python aiscan.py --graph lab/architecture.json
 python aiscan.py -u https://example.com --only recon --redact
 python aiscan.py -u https://example.com --module headers_audit.lua --redact
 ```
@@ -44,6 +46,8 @@ python aiscan.py -u https://example.com --module headers_audit.lua --redact
 | `-u, --url` | Alvo autorizado |
 | `--module` | Módulo específico |
 | `--list-modules` | Lista módulos |
+| `--source` | Inventário de código local |
+| `--graph` | Análise de modelo de arquitetura |
 | `--redact` | Reduz exposição de dados |
 | `--html` | Relatório HTML |
 | `--json` | Relatório JSON |
@@ -55,6 +59,6 @@ python aiscan.py -u https://example.com --module headers_audit.lua --redact
 python -m unittest discover -s tests -v
 ```
 
-[Arquitetura](docs/ARCHITECTURE.md) · [Laboratório](lab/README.md)
+[Arquitetura](docs/ARCHITECTURE.md) · [Laboratório](lab/README.md) · [SGE](docs/SGE.md)
 
 Use somente em sistemas próprios ou autorizados. A opção `--redact` não garante anonimização completa; revise os resultados antes de compartilhar.
