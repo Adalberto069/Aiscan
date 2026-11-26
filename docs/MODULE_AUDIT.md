@@ -17,3 +17,7 @@ Scope: existing modules; no new network requests or discovery capabilities added
 | supabase_enum | Redacted output omits row values; observed anonymous reads require policy context; reports consolidate same base/table across both modules. |
 
 Review observations are not confirmed vulnerabilities. Some textual observations are console-only. The original explicit raw-data mode remains for the Supabase table modules; use redaction and review output before sharing. Redaction is not a universal sanitizer across the entire scanner. Existing network scan behavior is unchanged. No live targets were tested during this update.
+
+## Report triage follow-up
+
+Anonymous-read observations with reported sensitive column names are assigned high **potential** severity and medium confidence, with `REVIEW_REQUIRED` status. Other anonymous-read observations remain informational. The strongest existing column-count metadata survives deduplication regardless of module order. Neither the presence of a column name nor an anonymous read proves that private values are accessible contrary to the expected policy. The terminal and exports expose review status separately. No new probes, table enumeration, or data retrieval added.
