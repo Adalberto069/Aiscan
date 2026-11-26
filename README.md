@@ -40,3 +40,7 @@ Consulte a [documentação do laboratório](lab/README.md) para executar verific
 ## Uso responsável
 
 Utilize exclusivamente em sistemas próprios ou com autorização expressa. Proteja credenciais e evidências de auditoria, revise os relatórios antes de compartilhar e valide os achados manualmente. O scanner não substitui uma avaliação completa de segurança.
+
+## Documentação técnica
+
+[Arquitetura, componentes e validação](docs/ARCHITECTURE.md).
