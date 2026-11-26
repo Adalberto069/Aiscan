@@ -91,9 +91,17 @@ class FindingsStore:
                     sources = previous.evidence.setdefault("modules", [previous.module])
                     if finding.module not in sources:
                         sources.append(finding.module)
+                    # Preserve the strongest *reported* metadata, regardless of module order.
+                    counts = [previous.evidence.get("colunas_sensiveis"),
+                              finding.evidence.get("colunas_sensiveis")]
+                    valid = [n for n in counts if type(n) is int and n >= 0]
+                    if valid:
+                        previous.evidence["colunas_sensiveis"] = max(valid)
+                    self._triage_public_read(previous)
                     return None
                 self._public_reads[key] = finding
                 finding.evidence["modules"] = [finding.module]
+                self._triage_public_read(finding)
                 self._itens.append(finding)
                 return finding
         k = finding.dedupe_key()
@@ -102,6 +110,31 @@ class FindingsStore:
         self._vistos.add(k)
         self._itens.append(finding)
         return finding
+
+    @staticmethod
+    def _triage_public_read(finding):
+        """Report potential impact separately from proof of unauthorized access.
+        Uses existing column-name metadata only; never examines or prints row values.
+        """
+        n = finding.evidence.get("colunas_sensiveis")
+        finding.verdict = "REVIEW_REQUIRED"
+        finding.confidence = "MEDIA"
+        finding.remediation = "Conferir a politica de acesso esperada e restringir campos privados."
+        if type(n) is int and n > 0:
+            finding.severity = "ALTA"
+            finding.title = "Leitura publica com indicios de campos sensiveis: " + finding.evidence["tabela"]
+            finding.description = (
+                "Impacto potencial alto: leitura anonima observada com nomes de campos "
+                "classificados como sensiveis. Valores e politica de acesso nao verificados "
+                "nesta triagem; requer revisao humana."
+            )
+        else:
+            finding.severity = "INFO"
+            finding.title = "Leitura publica observada: " + finding.evidence["tabela"]
+            finding.description = (
+                "Leitura observada; acesso publico pode ser intencional. "
+                "Ausencia de indicadores nao comprova seguranca."
+            )
 
     def add_dict(self, **kw):
         return self.add(Finding(**kw))
@@ -134,7 +167,8 @@ class FindingsStore:
             "version": "1.0.0-PRO",
             "target": self.target,
             "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "summary": {"total": len(self._itens), **self.resumo()},
+            "summary": {"total": len(self._itens), **self.resumo(),
+                        "review_required": sum(f.verdict == "REVIEW_REQUIRED" for f in self._itens)},
             "findings": [asdict(f) for f in self.ordenados()],
         }
         return json.dumps(payload, ensure_ascii=False, indent=indent)
@@ -225,6 +259,7 @@ def _render_html(store):
           <span class='chip' style='background:{cor}'>{_html.escape(f.severity)}</span>
           <span class='title'>{_html.escape(f.title)}</span>
           {cwe}
+          <span class="meta">{_html.escape(f.verdict)}</span>
           <span class='meta'>{_html.escape(f.module)} · conf {_html.escape(f.confidence)}</span>
         </summary>
         <div class='body'>

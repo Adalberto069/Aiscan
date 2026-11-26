@@ -314,7 +314,13 @@ def exportar_relatorios(store, args):
     if escreveu or len(store):
         r = store.resumo()
         resumo = "  ".join(f"{s}={r[s]}" for s in ("CRITICA", "ALTA", "MEDIA", "BAIXA", "INFO"))
-        console.print(f"[bold magenta]=== ACHADOS: {len(store)} total · {resumo} ===[/bold magenta]")
+        console.print(f"[bold magenta]=== ACHADOS E OBSERVACOES: {len(store)} total · {resumo} ===[/bold magenta]")
+        revisao = [f for f in store if f.verdict == "REVIEW_REQUIRED"]
+        if revisao:
+            console.print("=== REVISAO NECESSARIA: severidade representa impacto potencial ===", markup=False)
+            for f in revisao:
+                console.print(f"[{f.severity}] {f.title} | confianca={f.confidence} | {f.verdict}", markup=False)
+            console.print(f"{len(revisao)} observacao(oes) exigem verificacao de politica; nao sao falhas confirmadas.", markup=False)
 
 if __name__ == "__main__":
     main_cli()
