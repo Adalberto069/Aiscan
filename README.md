@@ -25,8 +25,7 @@ pip install -r requirements.txt
 ```powershell
 git clone https://github.com/Adalberto069/Aiscan.git
 cd Aiscan
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 ## Uso
@@ -38,20 +37,6 @@ python aiscan.py -u https://example.com --only recon --redact
 python aiscan.py -u https://example.com --module headers_audit.lua --redact
 ```
 
-No Windows, substitua `python` por `.\.venv\Scripts\python.exe`.
-
-## Laboratório
-
-Execute em dois terminais, no ambiente virtual:
-
-```bash
-python lab/server.py 18080
-```
-
-```bash
-python aiscan.py -u http://127.0.0.1:18080 --lab --redact --html report.html
-```
-
 ## Opções
 
 | Flag | Descrição |
@@ -60,7 +45,6 @@ python aiscan.py -u http://127.0.0.1:18080 --lab --redact --html report.html
 | `--module` | Módulo específico |
 | `--list-modules` | Lista módulos |
 | `--redact` | Reduz exposição de dados |
-| `--lab` | Laboratório local |
 | `--html` | Relatório HTML |
 | `--json` | Relatório JSON |
 | `--sarif` | Relatório SARIF |
