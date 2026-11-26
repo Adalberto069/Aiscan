@@ -130,11 +130,17 @@ class SecurityGraph:
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="AIScan SGE: offline architecture model")
-    parser.add_argument("model", type=Path, help="local JSON architecture model")
+    inputs = parser.add_mutually_exclusive_group(required=True)
+    inputs.add_argument("model", nargs="?", type=Path, help="local JSON architecture model")
+    inputs.add_argument("--source", type=Path, help="inventory local source dependencies")
     args = parser.parse_args(argv)
     try:
-        spec = json.loads(args.model.read_text(encoding="utf-8-sig"))
-        result = SecurityGraph.from_dict(spec).analyze()
+        if args.source is not None:
+            from core.source_inventory import inventory
+            result = inventory(args.source)
+        else:
+            spec = json.loads(args.model.read_text(encoding="utf-8-sig"))
+            result = SecurityGraph.from_dict(spec).analyze()
     except (OSError, ValueError) as exc:
         parser.exit(2, f"SGE: {exc}\n")
     print(json.dumps(result, indent=2, ensure_ascii=True))
