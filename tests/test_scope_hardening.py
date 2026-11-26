@@ -135,13 +135,16 @@ class IsolationLab(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.srv = HTTPServer(("127.0.0.1", PORT), Handler)
-        threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
+        cls.th = threading.Thread(target=cls.srv.serve_forever, daemon=True)
+        cls.th.start()
         idents, _ = load_identities(ENV_LAB)
         cls.eng = AuthzEngine(BASE, idents, {"private_fields": ["email"]}, lab_mode=True)
 
     @classmethod
     def tearDownClass(cls):
         cls.srv.shutdown()
+        cls.srv.server_close()
+        cls.th.join(timeout=2)
 
     def test_token_isolation(self):
         self.eng.request("user_b", "GET", "/rest/v1/profiles",
@@ -196,7 +199,8 @@ class CleanupLab(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.srv = HTTPServer(("127.0.0.1", PORT + 1), Handler)
-        threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
+        cls.th = threading.Thread(target=cls.srv.serve_forever, daemon=True)
+        cls.th.start()
         cls.base = f"http://127.0.0.1:{PORT + 1}"
         idents, _ = load_identities(ENV_LAB)
         cls.idents = idents
@@ -204,6 +208,8 @@ class CleanupLab(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.srv.shutdown()
+        cls.srv.server_close()
+        cls.th.join(timeout=2)
 
     def eng(self, **kw):
         return AuthzEngine(self.base, self.idents, {"private_fields": ["email"]},
