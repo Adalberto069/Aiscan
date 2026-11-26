@@ -85,8 +85,8 @@ function run(ctx)
             table.insert(expostas, t)
             table.insert(out, "[REVIEW] tabela legível: " .. t .. " em " .. base)
             if not mask then table.insert(out, "      " .. tabela(body, 3, false)) end
-            add_finding({title="Tabela Supabase legível com anon key; revisar politica: " .. t,
-                         severity="INFO", confidence="MEDIA", category="supabase-rls",
+            add_finding({title="Tabela Supabase legivel; revisar politica: " .. t,
+                         severity="INFO", confidence="MEDIA", category="supabase-public-read",
                          cwe="CWE-284", description="GET /rest/v1/" .. t .. " retornou dados com a anon key.",
                          remediation="Verificar se a leitura anonima da tabela " .. t .. " e intencional; restringir dados privados.",
                          evidence={tabela=t, base=base, observacao="resposta retornou dados; valores omitidos"}})
