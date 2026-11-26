@@ -27,7 +27,7 @@ function run(ctx)
       elseif low:find(".read", 1, true) or low:find(".write", 1, true) then
         if low:find("true", 1, true) then
           fire = fire + 1
-          table.insert(out, "[FIRE] regras legiveis com true em .read/.write: " .. base .. " :: " .. preview(rbody, 120))
+          table.insert(out, "[REVIEW] regras legiveis com indicio textual de true: " .. base .. " (corpo omitido)")
         else
           table.insert(out, "[?] rules.json legivel sem true literal: " .. base)
         end
@@ -40,14 +40,14 @@ function run(ctx)
       local slow = lower(sbody)
       if not slow:find("permission denied", 1, true) and not slow:find("error", 1, true) and #sbody > 10 then
         fire = fire + 1
-        table.insert(out, "[FIRE] shallow=true com dados: " .. base)
+        table.insert(out, "[REVIEW] shallow=true com resposta a revisar: " .. base)
       end
     end
   end
   if fire > 0 then
-    table.insert(out, "[VEREDITO] CRITICO — regras/dados Firebase abertos.")
+    table.insert(out, "[VEREDITO] REVISAO — indicios; autorizacao efetiva nao confirmada.")
   else
-    table.insert(out, "[VEREDITO] ok — regras segurando.")
+    table.insert(out, "[VEREDITO] nenhum indicio na amostra; regras nao verificadas.")
   end
   return table.concat(out, "\n")
 end

@@ -25,11 +25,32 @@ function run(ctx)
     {"supabase\\.co", "URL supabase no codigo"},
   }
   local achou = 0
+  local publicos = 0
+  local function report(p, hits, location)
+    local label = p[2]
+    local public = label:find("publishable", 1, true) or label:find("VITE_", 1, true) or label:find("NEXT_PUBLIC_", 1, true) or label:find("URL supabase", 1, true)
+    if label:find("JWT/", 1, true) then
+      public = true
+      for _, hit in ipairs(hits) do
+        local claims = decode_jwt_payload(hit)
+        if not (claims and claims["ok"] and claims["role"] == "anon") then public = false end
+      end
+    end
+    if public then
+      publicos = publicos + 1
+      table.insert(out, "[INFO] " .. location .. label .. " (identificador publico; valor omitido)")
+    else
+      achou = achou + 1
+      add_finding({title="Candidato a segredo: " .. label, severity="INFO", confidence="BAIXA",
+                   category="secret-review", description="Padrao observado; validade e privilegios nao verificados.",
+                   evidence={tipo=label, quantidade=#hits}})
+      table.insert(out, "[REVIEW] " .. location .. label .. " x" .. #hits .. " (valor omitido; validade nao verificada)")
+    end
+  end
   for _, p in ipairs(py_patterns) do
     local hits = find_regex(html, p[1])
     if #hits > 0 then
-      achou = achou + 1
-      table.insert(out, "[FIRE] " .. p[2] .. " x" .. #hits .. " :: " .. tostring(hits[1]))
+      report(p, hits, "")
     end
   end
 
@@ -72,8 +93,7 @@ function run(ctx)
         for _, p in ipairs(py_patterns) do
           local hits = find_regex(body, p[1])
           if #hits > 0 then
-            achou = achou + 1
-            table.insert(out, "[FIRE] bundle " .. u .. " :: " .. p[2] .. " x" .. #hits .. " :: " .. tostring(hits[1]))
+            report(p, hits, "bundle: ")
           end
         end
       end
@@ -82,9 +102,10 @@ function run(ctx)
   end
 
   if achou == 0 then
-    table.insert(out, "[OK] nenhuma secret classica no HTML/bundles (amostra 5 arquivos).")
+    table.insert(out, "[INFO] nenhum candidato a segredo nesta amostra.")
   else
-    table.insert(out, "[VEREDITO] " .. achou .. " sinal(is) de secret — tratar como P1 ate provar que e public/anon com RLS.")
+    table.insert(out, "[VEREDITO] " .. achou .. " candidato(s) a revisao; padrao nao comprova segredo ativo.")
   end
+  table.insert(out, "[INFO] " .. publicos .. " grupo(s) de indicadores publicos.")
   return table.concat(out, "\n")
 end

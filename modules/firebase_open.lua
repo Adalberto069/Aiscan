@@ -34,7 +34,7 @@ function run(ctx)
         or (low:find("permission_denied", 1, true) ~= nil)
       if status == 200 and not denied then
         vuln = vuln + 1
-        table.insert(out, "[FIRE] CRITICO " .. url .. " (HTTP 200) leitura publica :: " .. preview(body, 120))
+        table.insert(out, "[FIRE] CRITICO " .. url .. " (HTTP 200) leitura publica; corpo omitido")
       elseif status == 401 or status == 403 or denied then
         table.insert(out, "[OK] " .. url .. " (HTTP " .. tostring(status) .. ") regra bloqueia leitura")
       else
@@ -46,7 +46,7 @@ function run(ctx)
   if vuln > 0 then
     table.insert(out, "[VEREDITO] CRITICO — " .. vuln .. " de " .. #bases .. " base(s) com leitura publica.")
   else
-    table.insert(out, "[VEREDITO] ok — nenhuma base exposta.")
+    table.insert(out, "[VEREDITO] nenhuma exposicao confirmada na amostra.")
   end
   return table.concat(out, "\n")
 end

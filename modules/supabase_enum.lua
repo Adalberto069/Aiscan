@@ -54,12 +54,12 @@ function run(ctx)
     end
   end
   for _, t in ipairs(svc) do
-    table.insert(out, "[FIRE] P0 service_role exposta no front :: " .. t)
+    table.insert(out, "[FIRE] P0 service_role exposta no front :: " .. "[redacted]")
     add_finding({title="Supabase service_role JWT exposta no front-end (P0)",
                  severity="CRITICA", confidence="ALTA", category="secret-exposure",
                  cwe="CWE-200", description="Chave service_role (ignora RLS) encontrada no HTML/bundle.",
                  remediation="Revogar a chave imediatamente e nunca embutir service_role no cliente.",
-                 evidence={role="service_role", token_prefix=string.sub(t, 1, 12) .. "..."}})
+                 evidence={role="service_role", token_prefix="[redacted]"}})
   end
   if #anon == 0 then
     table.insert(out, "[-] URL Supabase visível, mas sem anon key no HTML/bundles — não dá pra validar RLS. Cheque o bundle JS.")
@@ -83,13 +83,13 @@ function run(ctx)
           local low = lower(body)
           if #body > 10 and not low:find("42501", 1, true) and not low:find("permission denied", 1, true) then
             table.insert(expostas, t)
-            table.insert(out, "[FIRE] CRITICO tabela legível: " .. t .. " em " .. base)
-            table.insert(out, "      " .. tabela(body, 3, mask))
-            add_finding({title="Tabela Supabase legível com anon key (RLS ausente): " .. t,
-                         severity="CRITICA", confidence="ALTA", category="supabase-rls",
+            table.insert(out, "[REVIEW] tabela legível: " .. t .. " em " .. base)
+            if not mask then table.insert(out, "      " .. tabela(body, 3, false)) end
+            add_finding({title="Tabela Supabase legivel; revisar politica: " .. t,
+                         severity="INFO", confidence="MEDIA", category="supabase-public-read",
                          cwe="CWE-284", description="GET /rest/v1/" .. t .. " retornou dados com a anon key.",
-                         remediation="Habilitar RLS na tabela " .. t .. " e policies restritas ao dono.",
-                         evidence={tabela=t, base=base, amostra=tabela(body, 1, true)}})
+                         remediation="Verificar se a leitura anonima da tabela " .. t .. " e intencional; restringir dados privados.",
+                         evidence={tabela=t, base=base, observacao="resposta retornou dados; valores omitidos"}})
           end
         end
       end
@@ -97,9 +97,9 @@ function run(ctx)
     end
   end
   if #expostas == 0 then
-    table.insert(out, "[+] RLS segurando: nenhuma tabela comum legível com a anon key.")
+    table.insert(out, "[?] Nenhuma leitura confirmada nesta amostra; RLS nao verificada.")
   else
-    table.insert(out, "[VEREDITO] CRITICO — RLS off/permissivo: " .. #expostas .. " tabela(s) com dados.")
+    table.insert(out, "[VEREDITO] REVISAO — leitura anonima observada: " .. #expostas .. " tabela(s) com dados.")
   end
   return table.concat(out, "\n")
 end

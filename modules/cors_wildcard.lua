@@ -21,22 +21,22 @@ function run(ctx)
       local acac = lower(r['allow_credentials'] or "")
       if acao == "https://evil.example" then
         fire = fire + 1
-        table.insert(out, "[FIRE] eco de Origin em " .. url .. " (ACAO=evil, creds=" .. acac .. ")")
+        table.insert(out, "[REVIEW] eco de Origin em " .. url .. " (ACAO=evil, creds=" .. acac .. ")")
       elseif acao == "*" then
         if acac == "true" then
           fire = fire + 1
-          table.insert(out, "[FIRE] wildcard + credentials em " .. url)
+          table.insert(out, "[INFO] wildcard + credentials (navegador bloqueia leitura credenciada) em " .. url)
         else
-          table.insert(out, "[FIRE] wildcard ACAO:* em " .. url)
+          table.insert(out, "[INFO] wildcard ACAO:* (pode ser publico por design) em " .. url)
           fire = fire + 1
         end
       end
     end
   end
   if fire > 0 then
-    table.insert(out, "[VEREDITO] CRITICO — CORS permite origem arbitraria (" .. fire .. " ponto(s)).")
+    table.insert(out, "[VEREDITO] REVISAO — configuracoes observadas; impacto nao confirmado (" .. fire .. " ponto(s)).")
   else
-    table.insert(out, "[VEREDITO] ok — nenhuma origem arbitraria ecoada.")
+    table.insert(out, "[VEREDITO] nenhuma origem arbitraria observada na amostra.")
   end
   return table.concat(out, "\n")
 end

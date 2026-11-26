@@ -22,7 +22,7 @@ function run(ctx)
         local hits = find_regex(body, "(?:KEY|TOKEN|SECRET|PASSWORD)[A-Za-z_]*=")
         if #hits > 0 then
           p0 = p0 + 1
-          table.insert(out, "[FIRE] P0 " .. url .. " com secrets :: " .. preview(tostring(hits[1]), 40))
+          table.insert(out, "[REVIEW] " .. url .. " com nome de variavel candidata; valor nao verificado")
         else
           table.insert(out, "[?] " .. url .. " (HTTP 200, sem KEY=/TOKEN=/SECRET= visível)")
         end
@@ -32,9 +32,9 @@ function run(ctx)
     end
   end
   if p0 > 0 then
-    table.insert(out, "[VEREDITO] P0 — .env/config com secrets acessível.")
+    table.insert(out, "[VEREDITO] REVISAO — nomes de variaveis encontrados; segredo nao confirmado.")
   else
-    table.insert(out, "[VEREDITO] ok — nenhum .env/config com secret.")
+    table.insert(out, "[VEREDITO] nenhum segredo confirmado na amostra.")
   end
   return table.concat(out, "\n")
 end
