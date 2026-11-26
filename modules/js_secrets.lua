@@ -30,15 +30,21 @@ function run(ctx)
     local label = p[2]
     local public = label:find("publishable", 1, true) or label:find("VITE_", 1, true) or label:find("NEXT_PUBLIC_", 1, true) or label:find("URL supabase", 1, true)
     if label:find("JWT/", 1, true) then
-      local claims = decode_jwt_payload(hits[1])
-      if claims and claims["ok"] and claims["role"] == "anon" then public = true end
+      public = true
+      for _, hit in ipairs(hits) do
+        local claims = decode_jwt_payload(hit)
+        if not (claims and claims["ok"] and claims["role"] == "anon") then public = false end
+      end
     end
     if public then
       publicos = publicos + 1
       table.insert(out, "[INFO] " .. location .. label .. " (identificador publico; valor omitido)")
     else
       achou = achou + 1
-      table.insert(out, "[REVIEW] " .. location .. label .. " x" .. #hits .. " (valor omitido; validade nao verificada)")
+      add_finding({title="Candidato a segredo: " .. label, severity="INFO", confidence="BAIXA",
+                   category="secret-review", description="Padrao observado; validade e privilegios nao verificados.",
+                   evidence={tipo=label, quantidade=#hits}})
+      table.insert(out, "[REVIEW]  .. location .. label .. " x" .. #hits .. " (valor omitido; validade nao verificada)")
     end
   end
   for _, p in ipairs(py_patterns) do
