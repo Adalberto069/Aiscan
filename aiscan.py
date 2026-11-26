@@ -226,6 +226,7 @@ def main_cli():
     local = ap.add_mutually_exclusive_group()
     local.add_argument("--source", help="inventario de codigo-fonte local (SGE)")
     local.add_argument("--graph", help="analisa modelo de arquitetura JSON (SGE)")
+    local.add_argument("--audit-evidence", help="importa evidencia administrativa local agregada")
     ap.add_argument("--redact", dest="redact", action="store_true",
                     help="mascara PII no escopo (padrão: mostra valores reais)")
     ap.add_argument("--authz", dest="authz", action="store_true",
@@ -243,6 +244,21 @@ def main_cli():
     ap.add_argument("--html", dest="html_out", default=None,
                     help="grava relatório HTML autocontido (ex: report.html)")
     args = ap.parse_args()
+
+    if args.audit_evidence is not None:
+        if (args.alvo or args.listar or args.fases or args.modulo or args.authz
+                or args.policy or args.lab or args.allow_write or args.modo.upper() != "MANUAL"):
+            ap.error("--audit-evidence e um modo local, sem varredura de rede.")
+        from core.admin_evidence import import_evidence
+        try:
+            store = import_evidence(args.audit_evidence)
+        except (OSError, ValueError) as exc:
+            ap.error("Arquivo de evidencia invalido: " + str(exc))
+        console.print("=== EVIDENCIA ADMINISTRATIVA INFORMADA (nao verificada pelo scanner) ===", markup=False)
+        for f in store:
+            console.print(f"[{f.severity}] {f.title} | {f.verdict}", markup=False)
+        exportar_relatorios(store, args)
+        return
 
     if args.source is not None or args.graph is not None:
         if (args.alvo or args.listar or args.fases or args.modulo or args.authz

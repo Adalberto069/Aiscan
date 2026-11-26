@@ -56,7 +56,11 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header(k, v)
         self.send_header("Content-Length", str(len(raw)))
         self.end_headers()
-        self.wfile.write(raw)
+        try:
+            self.wfile.write(raw)
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            # Expected when the synthetic timeout client has already disconnected.
+            pass
 
     def do_GET(self):
         u = urlparse(self.path)
@@ -125,6 +129,13 @@ class Handler(BaseHTTPRequestHandler):
         u = urlparse(self.path)
         q = parse_qs(u.query)
         ident = self._key()
+        # Drain the test request body before an early response. Closing a socket
+        # with unread data can reset the connection on Windows.
+        ln = int(self.headers.get("Content-Length", 0) or 0)
+        if ln < 0 or ln > 65536:
+            return self._send(413, {"error": "lab body too large"})
+        if ln:
+            self.rfile.read(ln)
         mode = (q.get("mode", [""])[0])
         if u.path == "/rest/v1/probe" and self.command == "POST":
             if ident not in ("user_a", "user_b"):
@@ -138,8 +149,6 @@ class Handler(BaseHTTPRequestHandler):
             if mode == "badid":
                 WRITES.append(("POST", "?"))
                 return self._send(201, {"noid": True})  # 201 sem id — fixture incompatível
-            ln = int(self.headers.get("Content-Length", 0) or 0)
-            self.rfile.read(min(ln, 65536))
             nid = str(uuid.uuid4())
             PROBE[nid] = {"row": {"id": nid, "probe": "aiscan"},
                           "nodelete": mode == "nodelete",

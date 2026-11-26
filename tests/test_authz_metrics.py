@@ -37,7 +37,8 @@ class Metrics(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.srv = HTTPServer(("127.0.0.1", PORT), Handler)
-        threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
+        cls.th = threading.Thread(target=cls.srv.serve_forever, daemon=True)
+        cls.th.start()
         with open("lab/policy.json", encoding="utf-8") as f:
             cls.policy = json.load(f)
         idents, _ = load_identities(ENV_LAB)
@@ -49,6 +50,8 @@ class Metrics(unittest.TestCase):
             mode(False)
         finally:
             cls.srv.shutdown()
+            cls.srv.server_close()
+            cls.th.join(timeout=2)
 
     def by_id(self, cid):
         return next(c for c in self.policy["cases"] if c["id"] == cid)

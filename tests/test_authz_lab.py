@@ -44,6 +44,8 @@ class AuthzLab(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.srv.shutdown()
+        cls.srv.server_close()
+        cls.th.join(timeout=2)
 
     def verdict(self, cid, eng=None):
         eng = eng or self.eng
