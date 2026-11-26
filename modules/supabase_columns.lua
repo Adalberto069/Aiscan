@@ -91,7 +91,7 @@ function run(ctx)
           end
           fire = fire + 1
           local tot = (rc ~= nil and rc['total'] ~= nil and rc['total'] >= 0) and tostring(rc['total']) or "?"
-          local linha = "[FIRE] " .. t .. string.rep(" ", math.max(1, 16 - #t))
+          local linha = "[REVIEW] " .. t .. string.rep(" ", math.max(1, 16 - #t))
                         .. tot .. " rows " .. #cols .. " cols"
           if #sens > 0 then
             if show_data then
@@ -106,6 +106,10 @@ function run(ctx)
           local ids = find_regex(sample, "\"id\":\"[^\"]+\"")
           if show_data and #ids > 0 then linha = linha .. " | ex: " .. tostring(ids[1]) end
           table.insert(out, linha)
+          add_finding({title="Tabela Supabase legivel; revisar politica: " .. t,
+                       severity="INFO", confidence="MEDIA", category="supabase-public-read",
+                       description="Leitura anonima observada; acesso publico pode ser intencional.",
+                       evidence={tabela=t, base=base, colunas_sensiveis=#sens}})
           -- painel: só o relevante (ids, emails, flags, preço) — dump completo segue abaixo
           if show_data then table.insert(out, painel(sample, 5)) end
           if show_data then
