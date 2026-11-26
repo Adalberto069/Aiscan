@@ -75,12 +75,27 @@ class FindingsStore:
         self.target = target
         self._itens = []
         self._vistos = set()
+        self._public_reads = {}
 
     def add(self, finding):
         if not isinstance(finding, Finding):
             return None
         if not finding.target:
             finding.target = self.target
+        if finding.category == "supabase-public-read" and isinstance(finding.evidence, dict):
+            base, table = finding.evidence.get("base"), finding.evidence.get("tabela")
+            if isinstance(base, str) and base and isinstance(table, str) and table:
+                key = (finding.target, base, table)
+                previous = self._public_reads.get(key)
+                if previous is not None:
+                    sources = previous.evidence.setdefault("modules", [previous.module])
+                    if finding.module not in sources:
+                        sources.append(finding.module)
+                    return None
+                self._public_reads[key] = finding
+                finding.evidence["modules"] = [finding.module]
+                self._itens.append(finding)
+                return finding
         k = finding.dedupe_key()
         if k in self._vistos:
             return None
