@@ -44,7 +44,7 @@ function run(ctx)
       add_finding({title="Candidato a segredo: " .. label, severity="INFO", confidence="BAIXA",
                    category="secret-review", description="Padrao observado; validade e privilegios nao verificados.",
                    evidence={tipo=label, quantidade=#hits}})
-      table.insert(out, "[REVIEW]  .. location .. label .. " x" .. #hits .. " (valor omitido; validade nao verificada)")
+      table.insert(out, "[REVIEW] " .. location .. label .. " x" .. #hits .. " (valor omitido; validade nao verificada)")
     end
   end
   for _, p in ipairs(py_patterns) do
