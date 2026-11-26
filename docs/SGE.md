@@ -1,12 +1,15 @@
-# Security Graph Engine (SGE)
+# Security Graph Engine (SGE) 0.2
 
-Offline architecture review from a local JSON model. No extra dependencies, network requests or AI API.
+Offline architecture review and source inventory. No extra dependencies, network requests or AI API.
 
 ```bash
 python -m core.security_graph lab/architecture.json
-python -m unittest discover -s tests -p test_security_graph.py -v
+python -m core.security_graph --source .
+python -m unittest discover -s tests -v
 ```
 
-Schema 1: `components` contain `id`, `kind`, `zone`, `classification`; `relationships` contain `source`, `target`, `relation`, `control`. See the synthetic example in `lab/architecture.json`. The graph lists trust-zone crossings, declared enforcement and review items. A declared server control is not evidence of effective authorization; a review item is not a confirmed vulnerability.
+The source inventory recognizes selected Python imports and JavaScript package.json dependencies. It records the relative file path and package as evidence, skips dependency/build directories and dotfiles, and bounds file sizes and total bytes. It does not execute source code, extract literal secrets, infer actual permissions or claim a vulnerability.
 
-This is the first SGE milestone. Automatic source ingestion and controlled experimental validation are not implemented yet. Existing AIScan CLI and modules are unchanged.
+The architecture model uses schema 1: components contain id, kind, zone and classification; relationships contain source, target, relation and control. See lab/architecture.json. The graph lists trust-zone crossings, declared enforcement and review items. Declared server controls are not evidence of effective authorization. Review items are not confirmed vulnerabilities.
+
+Automatic technology inventory is implemented; automatic inference of relationships, runtime validation and additional language parsers are not. Existing scanner and Lua modules are unchanged.
