@@ -53,6 +53,14 @@ python aiscan.py -u https://example.com --module headers_audit.lua --redact
 | `--json` | Relatório JSON |
 | `--sarif` | Relatório SARIF |
 
+## Revisão de migrações PostgreSQL
+
+```bash
+python -m core.rls_review lab/rls_review.sql
+```
+
+Analisa um arquivo SQL local (até 1 MiB), apontando a última instrução explícita reconhecida de desativação de RLS por tabela. Não executa SQL, não acessa banco de dados e não prova exposição no ambiente publicado. SQL dinâmico, permissões, transações, outras migrações e resolução de nomes não são analisados. Ausência de alertas não significa segurança.
+
 ## Testes
 
 ```bash
